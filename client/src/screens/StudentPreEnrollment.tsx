@@ -46,6 +46,11 @@ function PreEnrollmentPanel({ identity }: { identity: E2Identity }) {
 
   useEffect(() => {
     const controller = new AbortController()
+    const initialQueryToken = queryToken.current
+    const initialSelectionRevision = selectionRevision.current
+    const isInitialHydrationCurrent = () => !controller.signal.aborted
+      && initialQueryToken === queryToken.current
+      && initialSelectionRevision === selectionRevision.current
     const requestIdentity: E2Identity = { runId, actorId, sessionId }
     void fetchPreEnrollmentContext(requestIdentity, fetch, controller.signal).then((value) => {
       setApiUnavailable(false)
@@ -55,13 +60,13 @@ function PreEnrollmentPanel({ identity }: { identity: E2Identity }) {
       setWorkspaceHydrated(value.draft === null)
       if (value.draft) {
         void fetchPreEnrollmentPublication(requestIdentity, value.draft.publicationId, value.academicRevision, fetch, controller.signal).then((publicationValue) => {
-          if (!controller.signal.aborted) {
+          if (isInitialHydrationCurrent()) {
             setPublication(publicationValue)
             setSelection(value.draft!.selection.map((choice) => ({ ...choice })))
             setValidation(value.draftValidation)
             setWorkspaceHydrated(true)
           }
-        }).catch((cause: unknown) => { if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'La publicación guardada no está disponible.') })
+        }).catch((cause: unknown) => { if (isInitialHydrationCurrent()) setError(cause instanceof Error ? cause.message : 'La publicación guardada no está disponible.') })
       }
     }).catch((cause: unknown) => {
       if (!controller.signal.aborted) {

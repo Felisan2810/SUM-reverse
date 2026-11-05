@@ -250,7 +250,7 @@ try {
     const crossed = await chooseAndValidate(page, '20118094')
     assert.equal(crossed.status, 'unmet')
     assert.ok(crossed.issues.some((issue) => issue.code === 'SCHEDULE_CONFLICT'))
-    await page.getByText('Las secciones seleccionadas tienen horarios superpuestos.', { exact: true }).waitFor()
+    await page.locator('.student-premat__warning').filter({ hasText: 'Las secciones seleccionadas tienen horarios superpuestos.' }).waitFor()
     await page.locator('.student-premat').screenshot({ path: resolve(evidence, 'cruce-detectado.png') })
     await page.locator('.student-premat select').selectOption(state.newerPublication.id)
     await page.getByRole('button', { name: 'Consultar', exact: true }).click()

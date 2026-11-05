@@ -464,6 +464,7 @@ export class PrematriculaService {
       const response = error instanceof HttpException ? error.getResponse() : null
       const code = response && typeof response === 'object' ? (response as Record<string, unknown>).error : null
       if (code && typeof code === 'object' && ['PUBLICATION_NOT_FOUND', 'DRAFT_NOT_FOUND'].includes(String((code as Record<string, unknown>).code))) fail(404, 'PUBLICATION_NOT_FOUND', 'No se encontró la publicación seleccionada')
+      if (error instanceof HttpException && error.getStatus() === 503) fail(503, 'STORAGE_UNAVAILABLE', 'No se pudo acceder al almacenamiento local de publicaciones')
       fail(409, 'PUBLICATION_UNAVAILABLE', 'La publicación no superó su validación')
     }
     return publication

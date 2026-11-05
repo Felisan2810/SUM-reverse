@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { HttpException } from '@nestjs/common'
 import { buildBuiltInEnrollmentScenarioBundles } from '../src/matricula-regular/enrollment-scenarios.js'
 import { MatriculaRegularError } from '../src/matricula-regular/matricula-regular-error.filter.js'
+import { PrematriculaErrorFilter } from '../src/prematricula/prematricula-error.filter.js'
 import { PrematriculaService } from '../src/prematricula/prematricula.service.js'
 import { classify } from '../src/programacion-academica/demand-estimator.js'
 import { projectActor } from '../src/programacion-academica/demand-fixtures.js'
@@ -138,6 +139,32 @@ describe('prematrícula E2 local', () => {
     await expect(state.create().getPublication({ identity: state.identity, publicationId: state.publication.id.replace(/.$/, '4') })).rejects.toMatchObject({ status: 404 })
     state.saved.getPublication = async () => Promise.reject(new HttpException({ error: { code: 'PUBLICATION_NOT_FOUND', message: 'Not published' } }, 404))
     await expect(state.create().getPublication({ identity: state.identity, publicationId: state.publication.id })).rejects.toMatchObject({ status: 404 })
+  })
+
+  it('preserva el error de almacenamiento 503 y el filtro devuelve STORAGE_UNAVAILABLE', async () => {
+    const state = setup()
+    state.saved.getPublication = async () => Promise.reject(new HttpException({ error: { code: 'STORAGE_UNAVAILABLE', message: 'Storage unavailable' } }, 503))
+
+    let error: unknown
+    try {
+      await state.create().getPublication({ identity: state.identity, publicationId: state.publication.id })
+    } catch (caught) {
+      error = caught
+    }
+    expect(error).toMatchObject({ status: 503 })
+
+    const response = { status: vi.fn().mockReturnThis(), json: vi.fn() }
+    const host = { switchToHttp: () => ({ getResponse: () => response }) }
+    new PrematriculaErrorFilter().catch(error, host as never)
+    expect(response.status).toHaveBeenCalledWith(503)
+    expect(response.json).toHaveBeenCalledWith({ error: { code: 'STORAGE_UNAVAILABLE', message: 'El almacenamiento local no está disponible' } })
+  })
+
+  it('mantiene 409 para una publicación inválida', async () => {
+    const state = setup()
+    state.saved.getPublication = async () => Promise.reject(new HttpException({ error: { code: 'DRAFT_CORRUPT', message: 'Invalid publication' } }, 409))
+    await expect(state.create().getPublication({ identity: state.identity, publicationId: state.publication.id }))
+      .rejects.toMatchObject({ status: 409, response: { error: { code: 'PUBLICATION_UNAVAILABLE' } } })
   })
 
   it('usa las asignaturas SIS publicadas sin convertir sus IDs al código interno SYN', async () => {
